@@ -1,0 +1,33 @@
+{
+  "name": "package",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "square": "npx nodemon SquarepayNode.js"
+  },
+  "author": "Peterven",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "''2.4.3",
+    "body-parser": "''1.20.2",
+    "connect-mongodb-session": "''3.1.1",
+    "cookie-parser": "''1.4.6",
+    "cors": "''2.8.5",
+    "dotenv": "''16.3.1",
+    "express": "''4.18.2",
+    "jsonwebtoken": "''9.0.1",
+    "mongodb": "''5.8.1",
+    "mongoose": "''7.4.5",
+    "multer": "''1.4.5-lts.1",
+    "sequelize": "''6.32.1",
+    "socket.io": "''4.7.2",
+    "stripe": "''14.24.0"
+  },
+  "devDependencies": {
+    "nodemon": "''3.0.3"
+  },
+  "proxy": "http://192.168.136.18:3000"
+}
