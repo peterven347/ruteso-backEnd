@@ -39,6 +39,7 @@ const upload = multer({ storage: storage, fileFilter: fileFilter })
 const item_fn = (collection, Schema) => {
     return mongoose.model(collection, productSchema)
 }
+const Item = item_fn("food_item", productSchema)
 
 const { auth } = require("../middlewears/auth")
 
@@ -46,7 +47,7 @@ router.use(bodyParser.urlencoded({ extended: true }));
 // router.use(cookieParser());
 
 
-router.post("/qwe", auth, (req, res) => {
+router.post("/qwe", (req, res) => {
     if(req.token){
         console.log(1)
     } else {
@@ -58,7 +59,7 @@ router.get("/", (req, res) => {
     res.redirect("http://127.0.0.1:3000")
 })
 
-router.get("/count", auth, async (req, res) => {
+router.get("/count", async (req, res) => {
     try {
         const noOfFoodItems = await item_fn('food_item', productSchema).countDocuments({})
         const noOfAdmins = await item_fn('Admin', userSchema).countDocuments({})
@@ -66,7 +67,7 @@ router.get("/count", auth, async (req, res) => {
     } catch (err) { console.log("couldn't load counts") }
 })
 
-router.get("/food", auth, async(req, res) => {
+router.get("/food", async(req, res) => {
     try {
         const foodItems = await item_fn('food_item', productSchema).find({})
         res.json(foodItems)
@@ -76,32 +77,15 @@ router.get("/food", auth, async(req, res) => {
     }
 })
 
-router.get("/history", auth, async (req, res) => {
+router.get("/history", async (req, res) => {
     await Order.findOne({ date: "Fri Apr 05 2024" }).lean().exec()
         .then(r => res.json(r.orders))
     // .then(res.end())
 })
 
-router.get("notification", auth, async () => {
+router.get("notification", async () => {
     res.send("<h1>Welcome!</h1>")
     socket.emit("event", { val: 33 })
-})
-
-router.post('/add-item', auth, upload.single("img"), (req, res) => {
-    const Item = item_fn("food_item", productSchema)
-    const itemToAdd = new Item({
-        name: req.body.name,
-        mini_unit: req.body.mini_unit,
-        mini_price: req.body.mini_price,
-        maxi_unit: req.body.maxi_unit,
-        maxi_price: req.body.maxi_price,
-        category: req.body.category,
-        img: path.normalize(req.file.path)
-    })
-    itemToAdd.save().then(() => console.log("Saved!"))
-        // .then(res.redirect("http://localhost:3000/stocks"))
-        .then(res.end())
-
 })
 
 router.post("/login", (req, res) => {
@@ -164,10 +148,41 @@ router.post("/register", (req, res) => {
         })
 })
 
-router.delete('/:_id', auth, async (req, res) => {
+router.put('/add-item', upload.single("img"), async (req, res) => {
+    const item = req.body
+    const img = path.normalize(req.file.path)
+    try {
+        if(item._id){
+            const saved = await Item.findByIdAndUpdate(item._id, {...item, img}, { new: true })
+            if (saved) {
+                res.status(200).json({status: true})
+            } else {
+                console.log("couldn't save")
+            } 
+        } else {
+            const itemToAdd = Item({...item, img})
+            itemToAdd.save().then(() => console.log("added new!"))
+                .then(res.redirect("http://localhost:3000/stocks"))
+                // .then(res.end())
+        }
+    } catch(err){
+            console.log(err)
+    }
+})
+
+router.delete('/:_id', async (req, res) => {
     const Item = item_fn("food_item", productSchema)
-    await Item.findByIdAndDelete({ "_id": req.params._id })
-        .then(res.status(200).json({ status: true }))
+    try{
+        const del = await Item.findByIdAndDelete({ "_id": req.params._id })
+            if(del){
+                res.status(200).json({ status: true })
+            } else {
+                res.status(404).json({ status: false, message: "Item not found" });
+            }
+    }catch(err){
+        console.log(err)
+        res.status(500).json({ status: false, error: err.message });
+    }
 })
 
 module.exports = router
