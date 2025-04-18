@@ -5,7 +5,7 @@ const mongoose = require('mongoose')
 const router = express.Router()
 const stripe = require('stripe')(process.env.SK_TEST);
 
-const Customer = require('../models/users')
+const Customer = require('../models/customers')
 const productSchema = require('../models/products')
 const Order = require('../models/orders')
 const item_fn = (collection, Schema) => {
@@ -15,9 +15,17 @@ const item_fn = (collection, Schema) => {
 const { auth } = require("../middlewears/auth")
 
 router.get("/food", auth, async (req, res) => {
+    let lastPurchases
     try {
+        const { email } = req.auth
         const foodItems = await item_fn('food_item', productSchema).find({})
-        res.json(foodItems)
+        await Customer.findOne({ eMail: email }) //await is necessary for userId
+            .then(result => {
+                if (result) {
+                    lastPurchases = result.lastPurchases
+                }
+            })
+        res.status(200).json({ foodItems, lastPurchases })
         console.log("food items delivered")
     } catch (err) {
         console.log(err, "valid")
@@ -39,7 +47,7 @@ router.get('/history', auth, async (req, res) => {
                     for (const date of userCart) {
                         let promise = Order.findOne({ date: date })
                             .then(r => {
-                                displayCart[date] = r.orders.get(userId)
+                                displayCart[date] = r.orders?.get(userId)
                             })
                         promises.push(promise);
                     }
@@ -71,13 +79,15 @@ router.put('/register', (req, res) => {
             if (result) {
                 user = result
                 console.log("User exists")
+                console.log(result)
             } else {
                 bcrypt.hash(password, 10)
                     .then(hashedPassword => {
                         const newCustomer = new Customer({
                             firstName: firstName,
                             eMail: eMail,
-                            password: hashedPassword
+                            password: hashedPassword,
+                            lastPurchases: {}
                         })
                         newCustomer.save().then(neww => console.log(neww))
                         const token = jwt.sign({
@@ -117,23 +127,29 @@ router.post("/login", (req, res) => {
 })
 
 router.patch('/order', auth, async (req, res) => {
-    const date = Date.now()
-    let _cart, cart, userId, user, cost, updatedCart, paymentIntentId;
     try {
+        const date = new Date(Date.now()).toDateString()
+        let _cart, cart, userId, user, cost, updatedCart, lastPurchases, tempLastPurchases, paymentIntentId;
         const { email } = req.auth
         await Customer.findOne({ eMail: email }) //await is necessary for userId
             .then(result => {
                 if (result) {
                     user = result
                     userId = (result._id).toString()
+                    lastPurchases = result.lastPurchases
                 }
             })
-        paymentIntentId = [].concat(Object.values({ ...req.body })).pop()
+        // paymentIntentId = [].concat(Object.values({ ...req.body })).pop()
         _cart = [].concat(Object.values({ ...req.body })).slice(0, -1)
-        cost = _cart.reduce((acc, i) => {
+        for (i of _cart) {
+            tempLastPurchases = Object.fromEntries(lastPurchases)
+            tempLastPurchases[i._id] = i.maxi_price
+            lastPurchases = new Map(Object.entries(tempLastPurchases))
+        }
+        cost = _cart?.reduce((acc, i) => {
             return acc + ((i.maxi_price * i.maxi_quantity + i.mini_price * i.mini_quantity));
         }, 0)
-        cart = [..._cart, { paymentId: paymentIntentId }, { totalCost: cost }]
+        cart = [..._cart, { totalCost: cost, date: Date.now(), paymentId: 77 }]
 
         await Order.findOne({ date: date })
             .then(result => {
@@ -147,9 +163,9 @@ router.patch('/order', auth, async (req, res) => {
                     record.save()
                         .then(r => {
                             if (r) {
-                                const userCart = [...new Set([new Date(Date.now()), ...user.cart])]
+                                const userCart = [...new Set([new Date(Date.now()), ...user?.cart])]
                                 // const userCart = [...new Set([...user.cart, new Date(Date.now()).toDateString()])]
-                                Customer.findOneAndUpdate({ _id: userId }, { cart: userCart })
+                                Customer.findOneAndUpdate({ _id: userId }, { cart: userCart, lastPurchases: lastPurchases })
                                     .then(console.log("saved"))
                             }
                         })
@@ -167,12 +183,13 @@ router.patch('/order', auth, async (req, res) => {
                             .then(r => {
                                 if (r) {
                                     const userCart = [...new Set([new Date(Date.now()), ...user.cart])]
-                                    Customer.findOneAndUpdate({ _id: userId }, { cart: userCart })
+                                    Customer.findOneAndUpdate({ _id: userId }, { cart: userCart, lastPurchases: lastPurchases })
                                         .then(console.log("saved..."))
                                 }
                             })
                     }
                 }
+
             })
         res.json({ costVal: cost })
     } catch (err) {
@@ -180,8 +197,6 @@ router.patch('/order', auth, async (req, res) => {
     }
 }
 );
-
-
 
 // Watch this video to get started: https://youtu.be/rPR2aJ6XnAc.
 router.post('/payment-sheet', auth, async (req, res) => {
@@ -212,42 +227,8 @@ router.post('/payment-sheet', auth, async (req, res) => {
         paymentIntent: paymentIntent.client_secret,
         ephemeralKey: ephemeralKey.secret,
         customer: customer.id,
-        publishableKey: process.env.PUBLISHABLE_KEY || "pk_test_51P3QJKRp1Ag2868eLwYfP27btVnM23crYTDMR260uqLIl8dgJ31qCIdNnER2Sh3SGvumtivvjB72w5MRJqiRpImY00rdqer6zq"
+        publishableKey: process.env.PUBLISHABLE_KEY
     });
 });
 
-
 module.exports = router
-
-
-
-
-// function extraFunction(req, res, next) {
-//     console.log("This is a function!");
-//     if (8 == 8) {
-//         return
-//     }
-//     console.log("This is an extra function!");
-//     req.extraData = { message: "foood" };
-//     next();
-// }
-
-// router.get('/api/test', extraFunction, (req, res) => {
-//     const ion = req.extraData.message;
-//     res.redirect(`http://localhost:27017/${ion}`)
-//     console.log("Main logic executed!");
-// });
-
-// router.get('/image/:filename', (req, res) => {
-//     const encodedFilename = req.params.filename;
-//     const decodedFilename = decodeURIComponent(encodedFilename);
-//     const filePath = path.join(__dirname, 'uploads', decodedFilename);
-
-//     // Check if the file exists before sending
-//     if (fs.existsSync(filePath)) {
-//         // Send the file directly
-//         res.sendFile(filePath);
-//     } else {
-//         res.status(404).send('File not found');
-//     }
-// });

@@ -50,9 +50,9 @@ const productSchema = new Schema({
     },
     img: {
         type: String,
-        required: true,
+        // required: true,
     }
 },)
 
-module.exports = productSchema
-// module.exports = mongoose.model("Item", productSchema)
+// module.exports = productSchema
+module.exports = mongoose.model("Item", productSchema)

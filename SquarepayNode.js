@@ -7,11 +7,13 @@ var fs = require('fs')
 const app = express()
 const mongoose = require('mongoose')
 const path = require('path')
-const privateKey = fs.readFileSync(path.resolve(__dirname, 'server.key'), 'utf8');
-const certificate = fs.readFileSync(path.resolve(__dirname, 'server.crt'), 'utf8');
+// const privateKey = fs.readFileSync(path.resolve(__dirname, 'server.key'), 'utf8');
+// const certificate = fs.readFileSync(path.resolve(__dirname, 'server.crt'), 'utf8');
 
-const credentials = { key: privateKey, cert: certificate };
-const server = require('http').createServer(credentials, app)
+// const credentials = { key: privateKey, cert: certificate };
+// const server = require('http').createServer(credentials, app)
+const server = require('http').createServer(app)
+
 const socketIO = require('socket.io');
 const io = socketIO(server, {
     cors: { origin: "*" }
@@ -43,9 +45,21 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With')
     next()
 })
+
+// const setCache = function(req, res, next){
+//     const period = 300
+//     if(req.method == "GET") {
+//         res.set("Cache-control", `public, max-age=${period}`)
+//     } else {
+//         res.set("Cache-control", `no-store`)   
+//     }
+//     next()
+// }
+
+// app.use(setCache)
 app.use(express.static('public'))
 app.use("/admin", adminRoutes)
-app.use(userRoutes)
+app.use("/user", userRoutes)
 
 app.use('/', function (req, res, next) {
     res.cookie('title', 'Petervenstidfghndsred', {
@@ -101,6 +115,7 @@ mongoose.connect(MONGODB_URI, DBoptions)
     .then(() => {
         console.log("Database Connection Successful!");
         console.log(`Server running... port ${PORT}`)
+        console.log(socket.rooms);
     })
 
 // server.listen(PORT, () => {
