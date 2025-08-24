@@ -16,12 +16,12 @@
 const mongoose = require("mongoose")
 const Schema = mongoose.Schema
 
-const customerSchema = new Schema({
-    firstName: {
+const userSchema = new Schema({
+    first_name: {
         type: String,
         required: true,
     },
-    // lastName: {
+    // last_name: {
     //     type: String,
     //     required: true,
     // },
@@ -29,9 +29,10 @@ const customerSchema = new Schema({
     //     type: String,
     //     required: true,
     // },
-    eMail: {
+    email: {
         type: String,
         required: true,
+        unique: true
     },
     // phoneNumber: {
     //     type: Number,
@@ -41,9 +42,11 @@ const customerSchema = new Schema({
         type: String,
         required: true,
 	},
-    cart: [{
-        type: String
-    }]
+    last_purchase: {
+        type: Object,
+        default: {}
+    },
+    last_purchase_date: Date
 }, {timestamps: true})
 
-module.exports = mongoose.model("Customer", customerSchema)
+module.exports = mongoose.model("User", userSchema)
